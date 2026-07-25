@@ -39,6 +39,7 @@ class DashboardExhibitItem(BaseModel):
 
 
 class ContentReviewItem(BaseModel):
+    content_id: UUID
     exhibit_id: UUID
     exhibit_title: str
     language: Language
@@ -47,11 +48,31 @@ class ContentReviewItem(BaseModel):
     created_at: datetime
 
 
+class TopExhibitItem(BaseModel):
+    exhibit_id: UUID
+    title: str
+    visit_count: int
+
+
 class AnalyticsResponse(BaseModel):
     total_visitors: int
     total_visits: int
     exhibits_viewed: int
     avg_session_duration_seconds: float | None = None
+    top_exhibits: list[TopExhibitItem] = []
     museum_id: UUID | None = None
     date_from: datetime | None = None
     date_to: datetime | None = None
+
+
+class DashboardOverview(BaseModel):
+    museum_id: UUID
+    museum_name: str
+    total_exhibits: int
+    published_exhibits: int
+    draft_exhibits: int
+    pending_review_count: int
+    total_visitors: int
+    total_visits: int
+    exhibits_viewed: int
+    avg_session_duration_seconds: float | None = None

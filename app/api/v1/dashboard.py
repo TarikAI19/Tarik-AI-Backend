@@ -14,6 +14,24 @@ from app.services import dashboard_service
 router = APIRouter()
 
 
+@router.get("/overview")
+def dashboard_overview(
+    museum_id: UUID | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(
+        require_roles(
+            UserRole.SUPER_ADMIN,
+            UserRole.MUSEUM_ADMIN,
+            UserRole.CURATOR,
+        )
+    ),
+):
+    overview = dashboard_service.get_overview(
+        db, current_user, museum_id=museum_id
+    )
+    return ok(overview.model_dump(), message="Dashboard overview retrieved")
+
+
 @router.get("/museums")
 def dashboard_museums(
     limit: int = Query(default=10, ge=1, le=100),

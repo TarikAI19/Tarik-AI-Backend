@@ -85,6 +85,16 @@ def sync() -> None:
             )
             print("Added exhibit_contents.audio_url")
 
+        session_cols = _column_names(conn, "visitor_sessions")
+        if "language" in session_cols:
+            conn.execute(
+                text(
+                    "ALTER TABLE visitor_sessions "
+                    "ALTER COLUMN language DROP NOT NULL"
+                )
+            )
+            print("visitor_sessions.language is now nullable")
+
     print("Schema sync complete.")
 
 

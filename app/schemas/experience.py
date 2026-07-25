@@ -37,7 +37,7 @@ class ExhibitDetail(BaseModel):
     estimated_duration: int
     audio_url: str | None = None
     audio_duration: int | None = None
-    historical_text: str
+    historical_text: str  # curator-approved narration text (generated_text in DB)
     language: Language
     persona: Persona
 

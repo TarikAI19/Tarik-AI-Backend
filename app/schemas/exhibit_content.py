@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
-from app.models.enums import ContentStatus, Language, Persona
+from app.core.enums import ContentStatus, Language, Persona
 
 
 class ExhibitContentCreate(BaseModel):

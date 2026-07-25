@@ -1,11 +1,11 @@
-from app.models.base import Base
-from app.models.enums import (
+from app.core.enums import (
     ContentStatus,
     ExhibitStatus,
     Language,
     Persona,
     UserRole,
 )
+from app.db.base import Base
 from app.models.exhibit import Exhibit
 from app.models.exhibit_content import ExhibitContent
 from app.models.museum import Museum

@@ -6,8 +6,8 @@ from sqlalchemy import DateTime, Enum, ForeignKey, String, Text, UniqueConstrain
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.models.base import Base
-from app.models.enums import ContentStatus, Language, Persona
+from app.core.enums import ContentStatus, Language, Persona
+from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.exhibit import Exhibit

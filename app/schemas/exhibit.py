@@ -3,7 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.enums import ExhibitStatus
+from app.core.enums import ExhibitStatus
 from app.schemas.exhibit_content import ExhibitContentResponse
 
 

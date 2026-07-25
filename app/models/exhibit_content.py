@@ -43,8 +43,8 @@ class ExhibitContent(Base):
         Enum(Persona, name="persona", native_enum=False),
         nullable=False,
     )
-    historical_text: Mapped[str] = mapped_column(Text, nullable=False)
-    audio_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    generated_text: Mapped[str] = mapped_column(Text, nullable=False)
+    audio_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     status: Mapped[ContentStatus] = mapped_column(
         Enum(ContentStatus, name="content_status", native_enum=False),
         nullable=False,

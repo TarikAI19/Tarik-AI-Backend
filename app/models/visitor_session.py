@@ -34,9 +34,9 @@ class VisitorSession(Base):
         index=True,
         nullable=False,
     )
-    language: Mapped[Language] = mapped_column(
+    language: Mapped[Language | None] = mapped_column(
         Enum(Language, name="language", native_enum=False, create_constraint=False),
-        nullable=False,
+        nullable=True,
     )
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

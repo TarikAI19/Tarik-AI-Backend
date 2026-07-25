@@ -5,13 +5,12 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.permissions import assert_museum_access
-from app.core.enums import ContentStatus, ExhibitStatus, Language, Persona, UserRole
+from app.core.enums import ExhibitStatus, UserRole
 from app.models.exhibit import Exhibit
 from app.models.exhibit_content import ExhibitContent
 from app.models.museum import Museum
 from app.models.user import User
 from app.schemas.exhibit import ExhibitCreate, ExhibitUpdate
-from app.services import ai_service
 
 
 def _ensure_museum_exists(db: Session, museum_id: UUID) -> None:
@@ -36,22 +35,6 @@ def create_exhibit(db: Session, payload: ExhibitCreate, user: User) -> Exhibit:
         status=ExhibitStatus.DRAFT,
     )
     db.add(exhibit)
-    db.flush()
-
-    generated_text = ai_service.generate_content_text(
-        source_text=payload.source_text,
-        language=Language.EN,
-        persona=Persona.HISTORIAN,
-    )
-    seed = ExhibitContent(
-        exhibit_id=exhibit.id,
-        language=Language.EN,
-        persona=Persona.HISTORIAN,
-        generated_text=generated_text,
-        audio_url=None,
-        status=ContentStatus.PENDING_REVIEW,
-    )
-    db.add(seed)
     db.commit()
 
     return get_exhibit(db, exhibit.id, user)

@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -29,6 +29,10 @@ class ContentCreateBody(BaseModel):
 
 class ContentUpdateBody(BaseModel):
     generated_text: str | None = Field(default=None, min_length=1)
+
+
+class GenerateContentBody(BaseModel):
+    persona: Persona = Persona.HISTORIAN
 
 
 @router.post("")
@@ -111,6 +115,23 @@ def delete_exhibit(
     return ok({"id": str(exhibit_id)}, message="Exhibit deleted")
 
 
+@router.post("/{exhibit_id}/generate-content")
+def generate_content(
+    exhibit_id: UUID,
+    body: GenerateContentBody = GenerateContentBody(),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(STAFF_ROLES),
+):
+    contents = content_service.generate_persona_contents(
+        db, exhibit_id, current_user, persona=body.persona
+    )
+    data = [ExhibitContentResponse.model_validate(c).model_dump() for c in contents]
+    return ok(
+        data,
+        message=f"{body.persona.value} content generated for all languages",
+    )
+
+
 @router.get("/{exhibit_id}/content")
 def list_content(
     exhibit_id: UUID,
@@ -187,15 +208,23 @@ def approve_content(
     exhibit_id: UUID,
     language: Language,
     persona: Persona,
-    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_user: User = Depends(STAFF_ROLES),
 ):
     content = content_service.approve_content(
         db, exhibit_id, language, persona, current_user
     )
-    background_tasks.add_task(tts_service.generate_and_store, content.id)
+    try:
+        tts_service.generate_and_store(content.id, raise_on_error=True)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Content approved but TTS failed: {exc}",
+        ) from exc
+
+    db.expire_all()
+    refreshed = content_service.get_content_by_id(db, content.id) or content
     return ok(
-        ExhibitContentResponse.model_validate(content).model_dump(),
-        message="Exhibit content approved; TTS queued",
+        ExhibitContentResponse.model_validate(refreshed).model_dump(),
+        message="Exhibit content approved; audio generated",
     )

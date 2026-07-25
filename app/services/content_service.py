@@ -35,6 +35,37 @@ def _get_content(
     return content
 
 
+def _resolve_historical_text(
+    db: Session,
+    exhibit: Exhibit,
+    content: ExhibitContent,
+) -> str:
+    if content.persona == Persona.HISTORIAN:
+        if not exhibit.source_text or not exhibit.source_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Exhibit source_text is required for historian content",
+            )
+        return exhibit.source_text.strip()
+
+    historian = db.scalar(
+        select(ExhibitContent).where(
+            ExhibitContent.exhibit_id == exhibit.id,
+            ExhibitContent.language == content.language,
+            ExhibitContent.persona == Persona.HISTORIAN,
+        )
+    )
+    if not historian or not historian.generated_text.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                "Historian content for this language must exist before "
+                "approving other personas"
+            ),
+        )
+    return historian.generated_text.strip()
+
+
 def create_content(
     db: Session,
     exhibit_id: UUID,
@@ -45,23 +76,36 @@ def create_content(
 ) -> ExhibitContent:
     exhibit = exhibit_service.get_exhibit(db, exhibit_id, user)
 
-    if not exhibit.source_text or not exhibit.source_text.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Exhibit source_text is required before generating content",
+    if persona == Persona.HISTORIAN:
+        if not exhibit.source_text or not exhibit.source_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Exhibit source_text is required before generating content",
+            )
+        draft_text = exhibit.source_text.strip()
+    else:
+        historian = db.scalar(
+            select(ExhibitContent).where(
+                ExhibitContent.exhibit_id == exhibit.id,
+                ExhibitContent.language == language,
+                ExhibitContent.persona == Persona.HISTORIAN,
+            )
         )
-
-    generated_text = ai_service.generate_content_text(
-        source_text=exhibit.source_text,
-        language=language,
-        persona=persona,
-    )
+        if not historian or not historian.generated_text.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Create historian content for this language before "
+                    "other personas"
+                ),
+            )
+        draft_text = historian.generated_text.strip()
 
     content = ExhibitContent(
         exhibit_id=exhibit.id,
         language=language,
         persona=persona,
-        generated_text=generated_text,
+        generated_text=draft_text,
         audio_url=None,
         status=ContentStatus.PENDING_REVIEW,
     )
@@ -134,15 +178,15 @@ def approve_content(
     persona: Persona,
     user: User,
 ) -> ExhibitContent:
-    exhibit_service.get_exhibit(db, exhibit_id, user)
+    exhibit = exhibit_service.get_exhibit(db, exhibit_id, user)
     content = _get_content(db, exhibit_id, language, persona)
 
-    if not content.generated_text.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot approve content with empty generated_text",
-        )
-
+    historical_text = _resolve_historical_text(db, exhibit, content)
+    content.generated_text = ai_service.generate_persona_text_via_gemini(
+        historical_text=historical_text,
+        language=language,
+        persona=persona,
+    )
     content.status = ContentStatus.APPROVED
     db.commit()
     db.refresh(content)

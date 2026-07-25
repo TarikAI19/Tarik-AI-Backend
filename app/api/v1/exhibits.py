@@ -197,5 +197,5 @@ def approve_content(
     background_tasks.add_task(tts_service.generate_and_store, content.id)
     return ok(
         ExhibitContentResponse.model_validate(content).model_dump(),
-        message="Exhibit content approved; TTS queued",
+        message="Content generated via Gemini and approved; TTS queued",
     )

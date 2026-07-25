@@ -12,6 +12,7 @@ class ExhibitCreate(BaseModel):
     title: str
     slug: str
     featured_image: str | None = None
+    source_text: str = Field(min_length=1)
     estimated_duration: int = Field(gt=0)
     status: ExhibitStatus = ExhibitStatus.DRAFT
 
@@ -20,6 +21,7 @@ class ExhibitUpdate(BaseModel):
     title: str | None = None
     slug: str | None = None
     featured_image: str | None = None
+    source_text: str | None = Field(default=None, min_length=1)
     estimated_duration: int | None = Field(default=None, gt=0)
     status: ExhibitStatus | None = None
 
@@ -32,6 +34,7 @@ class ExhibitResponse(BaseModel):
     title: str
     slug: str
     featured_image: str | None
+    source_text: str
     estimated_duration: int
     status: ExhibitStatus
     created_at: datetime

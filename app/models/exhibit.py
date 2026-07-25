@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, func
+from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,7 @@ class Exhibit(Base):
         index=True,
     )
     featured_image: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    source_text: Mapped[str] = mapped_column(Text, nullable=False)
     estimated_duration: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[ExhibitStatus] = mapped_column(
         Enum(ExhibitStatus, name="exhibit_status", native_enum=False),

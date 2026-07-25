@@ -1,26 +1,18 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.enums import ContentStatus, Language, Persona
 
 
 class ExhibitContentCreate(BaseModel):
-    exhibit_id: UUID
     language: Language
     persona: Persona
-    historical_text: str
-    audio_path: str | None = None
-    status: ContentStatus = ContentStatus.PENDING_REVIEW
 
 
 class ExhibitContentUpdate(BaseModel):
-    language: Language | None = None
-    persona: Persona | None = None
-    historical_text: str | None = None
-    audio_path: str | None = None
-    status: ContentStatus | None = None
+    generated_text: str | None = Field(default=None, min_length=1)
 
 
 class ExhibitContentResponse(BaseModel):
@@ -30,8 +22,8 @@ class ExhibitContentResponse(BaseModel):
     exhibit_id: UUID
     language: Language
     persona: Persona
-    historical_text: str
-    audio_path: str | None
+    generated_text: str
+    audio_url: str | None
     status: ContentStatus
     created_at: datetime
     updated_at: datetime

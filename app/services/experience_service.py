@@ -166,7 +166,7 @@ def list_exhibits(
                 title=exhibit.title,
                 featured_image=exhibit.featured_image,
                 estimated_duration=exhibit.estimated_duration,
-                audio_url=content.audio_path if content else None,
+                audio_url=content.audio_url if content else None,
             )
         )
 
@@ -194,9 +194,9 @@ def get_exhibit_detail(
         title=exhibit.title,
         featured_image=exhibit.featured_image,
         estimated_duration=exhibit.estimated_duration,
-        audio_url=content.audio_path,
+        audio_url=content.audio_url,
         audio_duration=None,
-        historical_text=content.historical_text,
+        generated_text=content.generated_text,
         language=content.language,
         persona=content.persona,
     )

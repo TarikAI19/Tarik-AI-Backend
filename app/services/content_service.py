@@ -97,7 +97,6 @@ def generate_persona_contents(
     return contents
 
 
-# Backwards-compatible alias
 def generate_historian_contents(
     db: Session,
     exhibit_id: UUID,

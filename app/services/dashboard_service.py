@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.permissions import assert_museum_access
-from app.core.enums import ContentStatus, Language, Persona, UserRole
+from app.core.enums import ContentStatus, ExhibitStatus, Language, Persona, UserRole
 from app.models.exhibit import Exhibit
 from app.models.exhibit_content import ExhibitContent
 from app.models.museum import Museum
@@ -20,6 +20,8 @@ from app.schemas.dashboard import (
     ContentReviewItem,
     DashboardExhibitItem,
     DashboardMuseumItem,
+    DashboardOverview,
+    TopExhibitItem,
 )
 
 
@@ -160,6 +162,7 @@ def list_content_review(
     rows = db.execute(query.order_by(ExhibitContent.created_at.asc())).all()
     return [
         ContentReviewItem(
+            content_id=content.id,
             exhibit_id=content.exhibit_id,
             exhibit_title=title,
             language=content.language,
@@ -171,6 +174,91 @@ def list_content_review(
     ]
 
 
+def _resolve_museum_target(
+    user: User,
+    museum_id: UUID | None,
+) -> UUID:
+    if user.role == UserRole.SUPER_ADMIN:
+        if museum_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="museum_id is required",
+            )
+        return museum_id
+
+    if user.museum_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not assigned to a museum",
+        )
+    if museum_id is not None:
+        assert_museum_access(user, museum_id)
+        return museum_id
+    return user.museum_id
+
+
+def get_overview(
+    db: Session,
+    user: User,
+    *,
+    museum_id: UUID | None = None,
+) -> DashboardOverview:
+    target = _resolve_museum_target(user, museum_id)
+    museum = db.get(Museum, target)
+    if not museum:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Museum not found",
+        )
+
+    total_exhibits = (
+        db.scalar(
+            select(func.count())
+            .select_from(Exhibit)
+            .where(Exhibit.museum_id == target)
+        )
+        or 0
+    )
+    published_exhibits = (
+        db.scalar(
+            select(func.count())
+            .select_from(Exhibit)
+            .where(
+                Exhibit.museum_id == target,
+                Exhibit.status == ExhibitStatus.PUBLISHED,
+            )
+        )
+        or 0
+    )
+    pending_review_count = (
+        db.scalar(
+            select(func.count())
+            .select_from(ExhibitContent)
+            .join(Exhibit, ExhibitContent.exhibit_id == Exhibit.id)
+            .where(
+                Exhibit.museum_id == target,
+                ExhibitContent.status == ContentStatus.PENDING_REVIEW,
+            )
+        )
+        or 0
+    )
+
+    analytics = get_analytics(db, user, museum_id=target)
+
+    return DashboardOverview(
+        museum_id=target,
+        museum_name=museum.name,
+        total_exhibits=total_exhibits,
+        published_exhibits=published_exhibits,
+        draft_exhibits=total_exhibits - published_exhibits,
+        pending_review_count=pending_review_count,
+        total_visitors=analytics.total_visitors,
+        total_visits=analytics.total_visits,
+        exhibits_viewed=analytics.exhibits_viewed,
+        avg_session_duration_seconds=analytics.avg_session_duration_seconds,
+    )
+
+
 def get_analytics(
     db: Session,
     user: User,
@@ -179,24 +267,7 @@ def get_analytics(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
 ) -> AnalyticsResponse:
-    if user.role == UserRole.SUPER_ADMIN:
-        if museum_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="museum_id is required",
-            )
-        target = museum_id
-    else:
-        if user.museum_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="User is not assigned to a museum",
-            )
-        if museum_id is not None:
-            assert_museum_access(user, museum_id)
-            target = museum_id
-        else:
-            target = user.museum_id
+    target = _resolve_museum_target(user, museum_id)
 
     session_filters = [VisitorSession.museum_id == target]
     visit_filters = [Exhibit.museum_id == target]
@@ -246,11 +317,30 @@ def get_analytics(
         .where(*visit_filters, Visit.ended_at.is_not(None))
     )
 
+    top_rows = db.execute(
+        select(Exhibit.id, Exhibit.title, func.count(Visit.id).label("visit_count"))
+        .join(Visit, Visit.exhibit_id == Exhibit.id)
+        .where(*visit_filters)
+        .group_by(Exhibit.id, Exhibit.title)
+        .order_by(func.count(Visit.id).desc())
+        .limit(5)
+    ).all()
+
+    top_exhibits = [
+        TopExhibitItem(
+            exhibit_id=row.id,
+            title=row.title,
+            visit_count=row.visit_count,
+        )
+        for row in top_rows
+    ]
+
     return AnalyticsResponse(
         total_visitors=total_visitors,
         total_visits=total_visits,
         exhibits_viewed=exhibits_viewed,
         avg_session_duration_seconds=float(avg_duration) if avg_duration is not None else None,
+        top_exhibits=top_exhibits,
         museum_id=target,
         date_from=date_from,
         date_to=date_to,

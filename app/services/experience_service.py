@@ -196,7 +196,7 @@ def get_exhibit_detail(
         estimated_duration=exhibit.estimated_duration,
         audio_url=content.audio_url,
         audio_duration=None,
-        generated_text=content.generated_text,
+        historical_text=content.generated_text,
         language=content.language,
         persona=content.persona,
     )
